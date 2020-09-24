@@ -1,0 +1,20 @@
+1、使用TensorFlow的API剪枝流程，数据集是mnist，比较剪枝前和剪枝后的loss，accury和模型的大小。https://www.codenong.com/cs106843328/
+
+2、量化流程(简单总结)：
+a)在已有的CNN网络中加入训练的伪量化节点，然后重新训练。为什么叫伪量化节点，因为训练的时候伪量化节点是将参数值量化后在反量化回浮点数，进行训练，训练过程记录最大值和最小值，其实是将参数量化成有限数量的浮点数去学习量化参数。训练时，注意要在float精度下收敛后在打开量化训练
+b)在训练好的模型中生成推断的伪量化节点图，生成固化的模型。这个过程应该是去掉了反量化的步骤。
+c)使用类似于tfLite的工具转为目标环境的压缩模型，这个过程就是将推断模型中的伪量化节点中的浮点类型全部转为int8运算，放弃浮点的运算ops
+
+参考论文（都是2018年的，还是论文讲的清楚）：
+1、Quantizing deep convolutional networks for efficient inference: A whitepaper
+2、Quantization and Training of Neural Networks for Efficient Integer-Arithmetic-Only Inference
+https://www.cnblogs.com/jiangxinyang/p/12056202.html> (量化一般可以分为两种模式：训练后的量化（post training quantizated）和训练中引入量化（quantization aware training）)
+https://zhuanlan.zhihu.com/p/66346329> (TFLite解析)
+https://zhuanlan.zhihu.com/p/101346240> （这个流程总结的很好）
+
+注意事项：（论文是谷歌2017年出的）
+1.train和inference创建的是不同的量化网络，前者是伪量化，后者是真实的量化，故结果会不同。
+2.尽量使用标准的网络(尽量不要使用dilated conv)。
+3.激活层目前尽量使用relu，relu6和identity。sigmoid，softmax量化误差会比较大。
+4.先训练float，在训练好的float上微调quant8，即尽量在float网络收敛后再进行量化训练。
+5.尽量在conv时传入激活函数和bn的参数，否则bn在folding时会失败。支持的api为slim.convolution2d或tf.contrib.layers.conv2d。<https://zhuanlan.zhihu.com/p/101346240> 
